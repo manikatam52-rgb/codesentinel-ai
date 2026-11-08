@@ -1,0 +1,51 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: codesentinel
+      POSTGRES_PASSWORD: codesentinel
+      POSTGRES_DB: codesentinel
+    ports:
+      - '5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U codesentinel']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  ai-service:
+    build: ./ai-service
+    ports:
+      - '8000:8000'
+    environment:
+      # Optional: point at a local Ollama for LLM-generated suggestions
+      # OLLAMA_URL: http://host.docker.internal:11434
+      OLLAMA_MODEL: codellama:7b
+
+  server:
+    build: ./server
+    ports:
+      - '4000:4000'
+    environment:
+      DATABASE_URL: postgresql://codesentinel:codesentinel@db:5432/codesentinel
+      JWT_SECRET: ${JWT_SECRET:-dev-only-change-me-in-production-secret}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6}
+      CORS_ORIGIN: http://localhost:5173
+      AI_SERVICE_URL: http://ai-service:8000
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET:-}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    build: ./web
+    ports:
+      - '80:80'
+    depends_on:
+      - server
+
+volumes:
+  pgdata:

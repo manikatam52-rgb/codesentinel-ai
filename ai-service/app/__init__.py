@@ -1,0 +1,1 @@
+"""CodeSentinel AI service package."""
